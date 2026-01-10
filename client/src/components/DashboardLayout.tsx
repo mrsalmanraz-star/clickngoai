@@ -1,9 +1,11 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -21,15 +23,33 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  LogOut, 
+  PanelLeft, 
+  Plus, 
+  Layers, 
+  CreditCard,
+  Shield,
+  Rocket,
+  Home,
+  Settings,
+  Crown,
+} from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Page 1", path: "/" },
-  { icon: Users, label: "Page 2", path: "/some-path" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+  { icon: Plus, label: "Create App", path: "/create" },
+  { icon: Layers, label: "Templates", path: "/templates" },
+  { icon: CreditCard, label: "Pricing", path: "/pricing" },
+];
+
+const adminMenuItems = [
+  { icon: Shield, label: "Admin Panel", path: "/admin/overview" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -58,9 +78,12 @@ export default function DashboardLayout({
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen mesh-gradient">
         <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-6">
+          <div className="w-20 h-20 rounded-2xl gradient-bg flex items-center justify-center mb-4">
+            <Rocket className="w-10 h-10 text-white" />
+          </div>
+          <div className="flex flex-col items-center gap-4">
             <h1 className="text-2xl font-semibold tracking-tight text-center">
               Sign in to continue
             </h1>
@@ -73,7 +96,7 @@ export default function DashboardLayout({
               window.location.href = getLoginUrl();
             }}
             size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
+            className="w-full btn-premium"
           >
             Sign in
           </Button>
@@ -112,8 +135,11 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
+  const activeMenuItem = [...menuItems, ...adminMenuItems].find(item => 
+    location.startsWith(item.path.split('/').slice(0, 2).join('/'))
+  );
   const isMobile = useIsMobile();
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
 
   useEffect(() => {
     if (isCollapsed) {
@@ -169,19 +195,24 @@ function DashboardLayoutContent({
                 <PanelLeft className="h-4 w-4 text-muted-foreground" />
               </button>
               {!isCollapsed ? (
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-semibold tracking-tight truncate">
-                    Navigation
+                <Link href="/" className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-lg gradient-bg flex items-center justify-center">
+                    <Rocket className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="font-bold gradient-text truncate">
+                    ClickNGoAI
                   </span>
-                </div>
+                </Link>
               ) : null}
             </div>
           </SidebarHeader>
 
           <SidebarContent className="gap-0">
+            {/* Main Menu */}
             <SidebarMenu className="px-2 py-1">
               {menuItems.map(item => {
-                const isActive = location === item.path;
+                const isActive = location === item.path || 
+                  (item.path === "/dashboard" && location.startsWith("/project/"));
                 return (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
@@ -199,20 +230,69 @@ function DashboardLayoutContent({
                 );
               })}
             </SidebarMenu>
+
+            {/* Admin Menu */}
+            {isAdmin && (
+              <>
+                {!isCollapsed && (
+                  <div className="px-4 py-2 mt-4">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Admin
+                    </span>
+                  </div>
+                )}
+                <SidebarMenu className="px-2 py-1">
+                  {adminMenuItems.map(item => {
+                    const isActive = location.startsWith("/admin");
+                    return (
+                      <SidebarMenuItem key={item.path}>
+                        <SidebarMenuButton
+                          isActive={isActive}
+                          onClick={() => setLocation(item.path)}
+                          tooltip={item.label}
+                          className={`h-10 transition-all font-normal`}
+                        >
+                          <item.icon
+                            className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
+                          />
+                          <span>{item.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </>
+            )}
           </SidebarContent>
 
           <SidebarFooter className="p-3">
+            {/* Subscription Badge */}
+            {!isCollapsed && user?.subscriptionTier && (
+              <div className="mb-3 px-1">
+                <Badge 
+                  className={`w-full justify-center py-1 ${
+                    user.subscriptionTier === 'unlimited' ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white' :
+                    user.subscriptionTier === 'multiple' ? 'bg-gradient-to-r from-primary to-accent text-white' :
+                    'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {user.subscriptionTier === 'unlimited' && <Crown className="w-3 h-3 mr-1" />}
+                  {user.subscriptionTier.charAt(0).toUpperCase() + user.subscriptionTier.slice(1)} Plan
+                </Badge>
+              </div>
+            )}
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium">
-                      {user?.name?.charAt(0).toUpperCase()}
+                  <Avatar className="h-9 w-9 border shrink-0 gradient-bg">
+                    <AvatarFallback className="text-xs font-medium bg-transparent text-white">
+                      {user?.name?.charAt(0).toUpperCase() || 'U'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0 group-data-[collapsible=icon]:hidden">
                     <p className="text-sm font-medium truncate leading-none">
-                      {user?.name || "-"}
+                      {user?.name || "User"}
                     </p>
                     <p className="text-xs text-muted-foreground truncate mt-1.5">
                       {user?.email || "-"}
@@ -221,6 +301,15 @@ function DashboardLayoutContent({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setLocation("/")}>
+                  <Home className="mr-2 h-4 w-4" />
+                  <span>Home</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLocation("/pricing")}>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  <span>Upgrade Plan</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={logout}
                   className="cursor-pointer text-destructive focus:text-destructive"
@@ -242,7 +331,7 @@ function DashboardLayoutContent({
         />
       </div>
 
-      <SidebarInset>
+      <SidebarInset className="bg-muted/30">
         {isMobile && (
           <div className="flex border-b h-14 items-center justify-between bg-background/95 px-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
             <div className="flex items-center gap-2">
@@ -257,7 +346,7 @@ function DashboardLayoutContent({
             </div>
           </div>
         )}
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-6">{children}</main>
       </SidebarInset>
     </>
   );
